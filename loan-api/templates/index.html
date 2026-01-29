@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AEP Client</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+
+  <div class="bg-white shadow-lg rounded-lg p-6 w-full max-w-md">
+    <h2 class="text-xl font-semibold mb-4">Loan AEP</h2>
+
+    <div id="loginBox" class="space-y-3">
+      <h3 class="font-medium">Sign in / Register</h3>
+      <form id="loginForm" class="space-y-2">
+        <input name="user_id" type="number" min="1" placeholder="User ID" required class="w-full border rounded px-3 py-2" />
+        <input name="username" placeholder="Username" required class="w-full border rounded px-3 py-2" />
+        <input name="password" type="password" placeholder="Password" required class="w-full border rounded px-3 py-2" />
+        <div class="flex gap-2">
+          <button id="loginBtn" type="submit" class="flex-1 bg-green-600 text-white py-2 rounded">Sign in / Register</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="userBar" class="hidden mb-3">
+      <span id="usernameDisplay" class="text-sm text-gray-700"></span>
+      <button id="logoutBtn" class="ml-2 text-sm text-red-600">Logout</button>
+    </div>
+
+    <div id="purposeStep" class="space-y-3 hidden">
+      <h3 class="font-medium">Select purpose</h3>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          data-loan-type="refinance"
+          class="loan-type-btn border rounded px-4 py-3 text-left hover:border-blue-500"
+        >
+          <span class="block font-semibold">Refinance</span>
+          <span class="block text-sm text-gray-600">Lower rate or cash out</span>
+        </button>
+
+        <button
+          type="button"
+          data-loan-type="pay-mortgage"
+          class="loan-type-btn border rounded px-4 py-3 text-left hover:border-blue-500"
+        >
+          <span class="block font-semibold">Pay Mortgage</span>
+          <span class="block text-sm text-gray-600">Make a payment</span>
+        </button>
+      </div>
+
+      <button
+        id="nextBtn"
+        type="button"
+        class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+      >
+        Next
+      </button>
+    </div>
+
+    <form id="loanForm" class="space-y-3 hidden">
+      <input type="hidden" name="loan_type" id="loanTypeInput" />
+      <input type="hidden" name="name" id="loanNameInput" />
+
+      <div>
+        <p class="text-sm font-medium text-gray-700 mb-1">Purpose (locked)</p>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label class="flex items-start gap-2 border rounded px-3 py-2 bg-gray-50">
+            <input id="radioRefinance" type="radio" name="loan_type_locked" value="refinance" disabled class="mt-1" />
+            <span>
+              <span class="block font-semibold">Refinance</span>
+              <span class="block text-sm text-gray-600">Lower rate or cash out</span>
+            </span>
+          </label>
+          <label class="flex items-start gap-2 border rounded px-3 py-2 bg-gray-50">
+            <input id="radioPayMortgage" type="radio" name="loan_type_locked" value="pay-mortgage" disabled class="mt-1" />
+            <span>
+              <span class="block font-semibold">Pay Mortgage</span>
+              <span class="block text-sm text-gray-600">Make a payment</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <input
+        name="user_id"
+        type="number"
+        min="1"
+        placeholder="User ID"
+        required
+        class="w-full border rounded px-3 py-2 focus:outline-none focus:ring"
+      />
+
+      <input
+        name="address"
+        placeholder="Address"
+        required
+        class="w-full border rounded px-3 py-2 focus:outline-none focus:ring"
+      />
+
+      <select
+        name="gender"
+        required
+        class="w-full border rounded px-3 py-2 focus:outline-none focus:ring"
+      >
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+
+      <button
+        type="submit"
+        class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+      >
+        Submit
+      </button>
+    </form>
+
+    <p id="loanId" class="mt-4 text-sm font-medium text-gray-700"></p>
+  </div>
+
+  <!-- Toast -->
+  <div
+    id="toast"
+    class="fixed bottom-5 right-5 hidden px-4 py-3 rounded text-white shadow-lg"
+  ></div>
+
+<script>
+const form = document.getElementById("loanForm");
+const toast = document.getElementById("toast");
+const loanIdEl = document.getElementById("loanId");
+const loginBox = document.getElementById("loginBox");
+const loginForm = document.getElementById("loginForm");
+const userBar = document.getElementById("userBar");
+const usernameDisplay = document.getElementById("usernameDisplay");
+const logoutBtn = document.getElementById("logoutBtn");
+const purposeStep = document.getElementById("purposeStep");
+const nextBtn = document.getElementById("nextBtn");
+const loanTypeInput = document.getElementById("loanTypeInput");
+const loanTypeButtons = Array.from(document.querySelectorAll(".loan-type-btn"));
+const radioRefinance = document.getElementById("radioRefinance");
+const radioPayMortgage = document.getElementById("radioPayMortgage");
+const loanUserIdInput = document.querySelector("#loanForm input[name='user_id']");
+const loginUserIdInput = document.querySelector("#loginForm input[name='user_id']");
+const loanNameInput = document.querySelector("#loanForm input[name='name']");
+
+let eventSource = null;
+let selectedLoanType = null;
+
+function showToast(message, type = "info") {
+  const colors = {
+    info: "bg-gray-800",
+    success: "bg-green-600",
+    error: "bg-red-600"
+  };
+
+  toast.className = `fixed bottom-5 right-5 px-4 py-3 rounded text-white shadow-lg ${colors[type]}`;
+  toast.innerText = message;
+  toast.style.display = "block";
+
+  setTimeout(() => {
+    toast.style.display = "none";
+  }, 4000);
+}
+
+form.onsubmit = async (e) => {
+  e.preventDefault();
+
+  // close previous SSE
+  if (eventSource) {
+    eventSource.close();
+  }
+
+  const res = await fetch("/submit", {
+    method: "POST",
+    body: new FormData(form),
+    credentials: 'include'
+  });
+
+  if (!res.ok) {
+    showToast("Submission failed", "error");
+    return;
+  }
+
+  const data = await res.json();
+  loanIdEl.innerText = `Loan ID: ${data.id}`;
+
+  eventSource = new EventSource(`/events/${data.id}`);
+
+  eventSource.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+
+    showToast(`Loan ${msg.status.toUpperCase()}`,
+      msg.status === "approved" ? "success" : "info"
+    );
+
+    if (msg.status === "approved" || msg.status === "denied") {
+      eventSource.close();
+    }
+  };
+
+  eventSource.onerror = () => {
+    showToast("Connection lost", "error");
+  };
+};
+
+// --- login flow ---
+async function checkProfile() {
+  try {
+    const res = await fetch('/profile', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      onLoginSuccess(data);
+      return true;
+    }
+  } catch (e) {
+    // not logged in
+  }
+  return false;
+}
+
+function onLoginSuccess(user) {
+  loginBox.style.display = 'none';
+  userBar.classList.remove('hidden');
+  purposeStep.classList.remove('hidden');
+  form.classList.add('hidden');
+  resetLoanTypeSelection();
+  const label = user.username ? `${user.username} (ID ${user.user_id})` : `User ${user.user_id}`;
+  usernameDisplay.innerText = `Signed in as ${label}`;
+  if (loanUserIdInput) loanUserIdInput.value = user.user_id || '';
+  if (loginUserIdInput) loginUserIdInput.value = user.user_id || '';
+  if (loanNameInput) loanNameInput.value = user.username || '';
+}
+
+function resetLoanTypeSelection() {
+  selectedLoanType = null;
+  loanTypeInput.value = "";
+  radioRefinance.checked = false;
+  radioPayMortgage.checked = false;
+  loanTypeButtons.forEach((btn) => {
+    btn.classList.remove("ring-2", "ring-blue-200", "bg-blue-50", "border-blue-600");
+  });
+}
+
+loanTypeButtons.forEach((btn) => {
+  btn.onclick = () => {
+    selectedLoanType = btn.dataset.loanType;
+    loanTypeInput.value = selectedLoanType;
+    loanTypeButtons.forEach((b) => {
+      const active = b === btn;
+      b.classList.toggle("ring-2", active);
+      b.classList.toggle("ring-blue-200", active);
+      b.classList.toggle("bg-blue-50", active);
+      b.classList.toggle("border-blue-600", active);
+    });
+  };
+});
+
+nextBtn.onclick = () => {
+  if (!selectedLoanType) {
+    showToast("Please choose Refinance or Pay Mortgage", "error");
+    return;
+  }
+  radioRefinance.checked = selectedLoanType === "refinance";
+  radioPayMortgage.checked = selectedLoanType === "pay-mortgage";
+  purposeStep.classList.add('hidden');
+  form.classList.remove('hidden');
+};
+
+loginForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const res = await fetch('/login', { method: 'POST', body: new FormData(loginForm), credentials: 'include' });
+  if (!res.ok) {
+    showToast('Login failed', 'error');
+    return;
+  }
+  const data = await res.json();
+  onLoginSuccess(data);
+  showToast('Signed in', 'success');
+};
+
+logoutBtn.onclick = async () => {
+  await fetch('/logout', { method: 'POST', credentials: 'include' });
+  loginBox.style.display = '';
+  userBar.classList.add('hidden');
+  purposeStep.classList.add('hidden');
+  document.getElementById('loanForm').classList.add('hidden');
+  loanIdEl.innerText = '';
+  resetLoanTypeSelection();
+  if (loanUserIdInput) loanUserIdInput.value = '';
+  if (loginUserIdInput) loginUserIdInput.value = '';
+  if (loanNameInput) loanNameInput.value = '';
+  showToast('Logged out', 'info');
+};
+
+// on load, check session
+checkProfile();
+</script>
+
+</body>
+</html>

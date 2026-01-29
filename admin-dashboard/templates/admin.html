@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Dashboard (AEP)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div class="max-w-5xl mx-auto py-10 px-4">
+    <h1 class="text-2xl font-semibold mb-6">Loan Admin Dashboard (AEP)</h1>
+
+    <div class="bg-white shadow rounded-lg p-6">
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-600">Tracking two demo users. Opted starts as NULL until set.</p>
+        <a href="/" class="text-sm text-blue-600 hover:underline">Refresh</a>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm border border-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-3 py-2 text-left border-b">UserID</th>
+              <th class="px-3 py-2 text-left border-b">Name</th>
+              <th class="px-3 py-2 text-left border-b">Address</th>
+              <th class="px-3 py-2 text-left border-b">Loan Amount</th>
+              <th class="px-3 py-2 text-left border-b">Opted</th>
+              <th class="px-3 py-2 text-left border-b">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for loan in loans %}
+            <tr class="odd:bg-white even:bg-gray-50">
+              <td class="px-3 py-2 border-b">{{ loan.user_id }}</td>
+              <td class="px-3 py-2 border-b">{{ loan.name }}</td>
+              <td class="px-3 py-2 border-b">{{ loan.address }}</td>
+              <td class="px-3 py-2 border-b">${{ '%.2f'|format(loan.loan_amount) }}</td>
+              <td class="px-3 py-2 border-b">
+                {% if loan.opted %}
+                  <span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">{{ loan.opted }}</span>
+                {% else %}
+                  <span class="text-gray-500">NULL</span>
+                {% endif %}
+              </td>
+              <td class="px-3 py-2 border-b">
+                <div class="flex gap-2">
+                  <form method="post" action="/reset/{{ loan.user_id }}">
+                    <button class="bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300">Reset</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

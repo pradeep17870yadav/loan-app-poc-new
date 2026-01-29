@@ -1,0 +1,58 @@
+services:
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "1G"
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  api:
+    build: ./loan-api
+    container_name: loan-api
+    depends_on:
+      - redpanda
+      - redis
+    ports:
+      - "8000:8000"
+
+  approver:
+    build: ./approver
+    container_name: approver
+    depends_on:
+      - redpanda
+    ports:
+      - "8001:8001"
+
+  admin-dashboard:
+    build: ./admin-dashboard
+    container_name: admin-dashboard
+    ports:
+      - "8002:8000"
+  console:
+    image: docker.redpanda.com/redpandadata/console:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+    depends_on:
+      - redpanda
